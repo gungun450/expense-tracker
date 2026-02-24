@@ -35,9 +35,10 @@ public class AuthController {
 
     }
     @PostMapping("/login")
-    public ResponseEntity<Map<String,String>> login(@RequestBody  User user){
+    public ResponseEntity<Map<String,String>> login(@RequestBody User user){
         try{
             authservice.login(user);
+            logger.info("Login successfully");
             return ResponseEntity.ok().body(Map.of("body","Login successfully"));
         } catch (InvalidEmailException e) {
             logger.info(e.getMessage());

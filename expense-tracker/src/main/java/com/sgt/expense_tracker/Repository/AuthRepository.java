@@ -82,4 +82,22 @@ public class AuthRepository {
         jdbcTemplate.update(query1,token);
         // 2 queries one for upadating password and another one for changing used-yn
    }
+
+   public String getTokenValid(int id){
+        String query = " SELECT token FROM authToken WHERE Uid = ? AND used_yn = 0 AND currentTimestamp >= NOW() - INTERVAL 15 MINUTE";
+        //
+       try{
+           return jdbcTemplate.queryForObject(query,String.class,id);
+       } catch (EmptyResultDataAccessException e) {
+           return null;
+       }
+
+   }
+
+   public void extendExpiryTime(String token,LocalDateTime currentTime, LocalDateTime expiry){
+
+        String query = "update authToken set expirey_time = ?, currentTimestamp = ? where token = ?";
+        jdbcTemplate.update(query,expiry,currentTime,token);
+
+   }
 }

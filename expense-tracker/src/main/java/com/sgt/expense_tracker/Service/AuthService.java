@@ -81,12 +81,20 @@ public class AuthService {
         if(user1 == null) {
          throw new InvalidEmailException();
         }else{
+            String token;
             // token generations
-            String token = UUID.randomUUID().toString();
-            LocalDateTime expiry =  LocalDateTime.now().plusMinutes(15);
+            String Existingtoken = authRepository.getTokenValid(user1.getId());
+            if(Existingtoken!=null){
+                 token = Existingtoken;
+                 LocalDateTime newExpiry =  LocalDateTime.now().plusMinutes(15);
+                 LocalDateTime currentTime = LocalDateTime.now();
+                 authRepository.extendExpiryTime(token,currentTime,newExpiry);
+            }else{
+                 token = UUID.randomUUID().toString();
+               LocalDateTime expiry =  LocalDateTime.now().plusMinutes(15);
             authRepository.saveResetToken(user1.getId(),token,expiry);
             // if inserted successfully then send link on that email
-
+            }
             MimeMessage message = mailSender.createMimeMessage();
             //creating helper to help update the message
             MimeMessageHelper messageHelper = new MimeMessageHelper(message);
@@ -117,6 +125,10 @@ public class AuthService {
             // asked mail sender to send the mail
             //mailSender.sendResetLink(email,resetLink);
              mailSender.send(message);
+            // if under 15 minutes then we will send same token
+//            if(LocalDateTime.now()<expiry){
+//
+//            }
         }
     }
 
