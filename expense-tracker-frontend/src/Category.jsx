@@ -23,7 +23,7 @@ const CategoriesPage = () => {
   const uid = user?.uid;
 
   //console.log("Current user:", user);
-  console.log("UID:", uid);
+  //console.log("UID:", uid);
 
   useEffect(() => {
     fetchCategories();
