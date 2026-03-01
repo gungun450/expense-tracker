@@ -5,6 +5,7 @@ import RegisterForm from './RegisterForm';
 import ForgetPassword from './ForgetPassword';
 import ResetPasswords from './ResetPassword';
 import Category from './Category';
+import TransactionsPage from './Transaction';
 
 function App() {
   return (
@@ -14,7 +15,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgetPassword />} />
         <Route path="/reset-password" element={<ResetPasswords />} />
-        <Route path = "category" element = {<Category/>}/>
+        <Route path = "/category" element = {<Category/>}/>
+        <Route path = "/transaction" element = {<TransactionsPage/>}/>
         <Route path="/" element={<Login />} />
         {/* uppercase first letter is must for import like ResetPasswords and not resetPassword */}
       </Routes>
