@@ -33,15 +33,12 @@ public class CategoryService {
         if (category.getType() == null) {
             category.setType("Expense");
         }
-        int id = 0;
         if (result == null) {
             throw new InvalidEmailException();
             // throw exception user donot exist or invalid user
-        } else {
-            id = result.getId();
         }
         //logger.info("came in service");
-        categoryRepository.save(id,
+        categoryRepository.save(result.getId(),
                 category.getName(),
                 category.getDescription(),
                 category.getIconUrl(),
@@ -67,6 +64,10 @@ public class CategoryService {
         if(c1==null){
             throw new CategoryDoesNotExistException();
         }
+//        logger.info("Category description: "+ category.getDescription());
+//        logger.info("Uid :"+category.getUid());
+//        logger.info("Cid: "+category.getCid());
+
         // category can have same names
         categoryRepository.update(category.getUid(),
                 category.getCid(),

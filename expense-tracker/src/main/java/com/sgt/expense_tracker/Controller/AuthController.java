@@ -26,7 +26,7 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<Map<String,String>> register(@RequestBody User user){
         try{
-            authservice.register(user);
+             authservice.register(user);
             return ResponseEntity.ok().body(Map.of("body","User Successfully Registered!!"));
         }catch(InvalidEmailException | UserNameAlreadyExistException |EmailAlreadyExistsException e) {
             logger.info(e.getMessage());
@@ -35,10 +35,9 @@ public class AuthController {
 
     }
     @PostMapping("/login")
-    public ResponseEntity<Map<String,String>> login(@RequestBody User user){
+    public ResponseEntity<Map<String,Object>> login(@RequestBody User user){
         try{
             authservice.login(user);
-            logger.info("Login successfully");
             return ResponseEntity.ok().body(Map.of("body","Login successfully"));
         } catch (InvalidEmailException e) {
             logger.info(e.getMessage());

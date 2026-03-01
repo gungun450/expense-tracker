@@ -38,7 +38,6 @@ public class CategoryController {
     @PostMapping("/categories/add")
     public ResponseEntity<Map<String,String>> createCategory(@RequestBody Category category, Authentication auth){
         System.out.println(auth.getName());
-
         try{
             categoryService.createCategory(category,auth.getName());
             //logger.info("Inserted Successfully");

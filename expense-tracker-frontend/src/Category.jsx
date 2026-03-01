@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 import './Category.css';
 
 const CategoriesPage = () => {
@@ -17,7 +18,12 @@ const CategoriesPage = () => {
     type: 'Expense'
   });
 
-  const uid = 1;
+
+  const { user } = useAuth();
+  const uid = user?.uid;
+
+  //console.log("Current user:", user);
+  console.log("UID:", uid);
 
   useEffect(() => {
     fetchCategories();
@@ -116,7 +122,7 @@ const CategoriesPage = () => {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          cid: selectedCategory.cid,
+          Cid: selectedCategory.Cid,
           uid: uid,
           name: formData.name,
           description: formData.description,
@@ -141,12 +147,17 @@ const CategoriesPage = () => {
     }
   };
 
-  const handleDeleteCategory = async (cid) => {
+  const handleDeleteCategory = async (Cid) => {
+   // console.log(Cid);
+    if (!Cid) {
+    console.error("Category ID (Cid) is missing!");
+    return;
+   }
     if (window.confirm('Are you sure you want to delete this category?')) {
       try {
         const response = await fetch(
-          `http://localhost:8080/categories/${cid}/user/${uid}`,
-          { method: 'DELETE',
+          `http://localhost:8080/categories/${Cid}/delete/${uid}`,
+          { method: 'PATCH',
             credentials: 'include'
            }
         );
@@ -202,13 +213,10 @@ const CategoriesPage = () => {
       <div className="container">
         {/* Header */}
         <div className="header">
-          <h1 className="header-title">💰 My Expenses</h1>
+          <h1 className="header-title">💰 My Expense Tracker</h1>
           <div className="header-buttons">
-            <button className="btn btn-success" onClick={() => setShowExpenseModal(true)}>
-              <span>+</span> Add Expense
-            </button>
             <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-              <span>+</span> Add Category
+               Add Transactions
             </button>
           </div>
         </div>
@@ -216,15 +224,15 @@ const CategoriesPage = () => {
         {/* Stats Bar */}
         <div className="stats-bar">
           <div className="stat-item">
-            <div className="stat-label">Total Categories</div>
+            <div className="stat-label">Total</div>
             <div className="stat-value">{stats.total}</div>
           </div>
           <div className="stat-item">
-            <div className="stat-label">Income Categories</div>
+            <div className="stat-label">Income</div>
             <div className="stat-value">{stats.income}</div>
           </div>
           <div className="stat-item">
-            <div className="stat-label">Expense Categories</div>
+            <div className="stat-label">Expense</div>
             <div className="stat-value">{stats.expense}</div>
           </div>
         </div>
@@ -235,7 +243,7 @@ const CategoriesPage = () => {
             className={`tab ${filterType === 'All' ? 'active' : ''}`}
             onClick={() => handleFilterChange('All')}
           >
-            All Categories
+            All
           </button>
           <button
             className={`tab ${filterType === 'Income' ? 'active' : ''}`}
@@ -255,7 +263,7 @@ const CategoriesPage = () => {
         {categories.length > 0 ? (
           <div className="categories-grid">
             {categories.map((category) => (
-              <div key={category.cid} className="category-card">
+              <div key={category.Cid} className="category-card">
                 <div className="category-header">
                   <div className="category-info">
                     <div className="category-icon">
@@ -278,7 +286,7 @@ const CategoriesPage = () => {
                     </button>
                     <button
                       className="icon-btn"
-                      onClick={() => handleDeleteCategory(category.cid)}
+                      onClick={() => handleDeleteCategory(category.Cid)}
                       title="Delete"
                     >
                       🗑️
@@ -303,7 +311,11 @@ const CategoriesPage = () => {
             ))}
           </div>
         ) : (
+          // for empty state which is not working 
           <div className="empty-state">
+            <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+            + Add Your First Transaction
+           </button>
             <div className="empty-state-icon">📂</div>
             <h3>No categories yet</h3>
             <p>
@@ -311,6 +323,7 @@ const CategoriesPage = () => {
                 ? 'Create your first category to get started!'
                 : `No ${filterType} categories found. Create one!`}
             </p>
+            
           </div>
         )}
       </div>

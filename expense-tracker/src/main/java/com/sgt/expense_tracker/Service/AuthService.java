@@ -133,20 +133,26 @@ public class AuthService {
     }
 
     // login  String email,String password
-    public void login(User user) throws InvalidEmailException{
+    public User login(User user) throws InvalidEmailException{
             String email = user.getEmail();
             String password = user.getPasswords();
            if(!isEmailValid(email)){
             throw new InvalidEmailException();
            }
           User user1 = authRepository.FindByEmail(email);
+
           // put logger here that login got successfull
           // if not null then it exists
-          if(user1!=null) {
-            // check if enetred is corrected or not
-            return;
+          if(user1==null) {
+              throw new InvalidEmailException();
+            // check if entered is corrected or not
           }
-          // check passowrd
+          //checking if entered password matches with actual password
+           BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+          if (!encoder.matches(password, user1.getPasswords())) {
+            throw new InvalidEmailException(); // wrong password
+          }
+          return user1;
     }
 
     public void resetPassword(String token,String password) throws InvalidTokenException {

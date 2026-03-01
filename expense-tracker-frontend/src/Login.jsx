@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from './AuthContext'; //
 import './Login.css';
 
 function Login() { 
+  const navigate = useNavigate(); // Add useNavigate hook
+  const { login } = useAuth(); 
+  
   const [formData, setFormData] = useState({
-    username: '',
+    email: '',
     password: ''
   });
 
@@ -25,24 +29,40 @@ function Login() {
     setMessage('');
     setError('');
 
+    const params = new URLSearchParams();
+    params.append('email', formData.email);
+    params.append('password', formData.password);
+
     try {
+      // Convert formData object to URLSearchParams
       const response = await fetch('http://localhost:8080/login', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+          //'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body:params,
+        credentials: 'include' // Important for sessions
       });
 
+      // 
       const data = await response.json();
+     
 
       if (response.ok) {
         setMessage('Login successful!');
-        // Store token or user info if needed
-        // localStorage.setItem('token', data.token);
-        // Redirect to dashboard
-        // window.location.href = '/dashboard';
+         login({ uid: data.uid}); // saves to AuthContext
+       // login({ uid: data.uid, username: data.username });
+        
+        // Store user info if needed
+        localStorage.setItem('user', JSON.stringify({ uid: data.uid }));
+        localStorage.setItem('isAuthenticated', 'true');
         console.log('Login success:', data);
+        // Redirect to category page after a brief delay
+        setTimeout(() => {
+          navigate('/category'); // or '/categories' or '/dashboard' based on your route
+        }, 500);
+        
       } else {
         setError(data.error || 'Login failed!');
       }

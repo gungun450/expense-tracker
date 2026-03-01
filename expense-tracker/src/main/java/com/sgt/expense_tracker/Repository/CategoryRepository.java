@@ -20,7 +20,7 @@ public class CategoryRepository {
 
      public List<Category> getAll(int Uid){
          String query = "select Cid,Uid,name,description,iconUrl,`type`,active_yn from category where Uid = ? AND active_yn = 1";
-         return jdbcTemplate.query(query , new categoryMapper(),Uid);
+         return jdbcTemplate.query(query , new categoryMapper(), Uid);
      }
 
     public void save(int Uid, String name, String description, String iconUrl, String type) {
@@ -42,7 +42,7 @@ public class CategoryRepository {
 
 
     public void softDelete(int uid, int cid) {
-         String query = "update category set active_yn=0, updated_at=CURRENT_TIMESTAMP where Cid = ? and Uid = ?";
+         String query = "update category set active_yn=0, updated_at=CURRENT_TIMESTAMP where Cid = ? and Uid = ? and active_yn = 1";
          jdbcTemplate.update(query,cid,uid);
     }
 
