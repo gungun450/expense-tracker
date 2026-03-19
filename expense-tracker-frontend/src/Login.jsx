@@ -51,16 +51,16 @@ function Login() {
 
       if (response.ok) {
         setMessage('Login successful!');
-         login({ uid: data.uid}); // saves to AuthContext
+         login({ uid: data.uid, email: formData.email }); // saves to AuthContext
        // login({ uid: data.uid, username: data.username });
         
         // Store user info if needed
-        localStorage.setItem('user', JSON.stringify({ uid: data.uid }));
+        localStorage.setItem('user', JSON.stringify({ uid: data.uid, email: formData.email }));
         localStorage.setItem('isAuthenticated', 'true');
         console.log('Login success:', data);
         // Redirect to category page after a brief delay
         setTimeout(() => {
-          navigate('/category'); // or '/categories' or '/dashboard' based on your route
+          navigate('/dashboard'); // or '/categories' or '/dashboard' based on your route
         }, 500);
         
       } else {

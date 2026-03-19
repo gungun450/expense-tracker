@@ -1,33 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from './AuthContext';
-import './Category.css';
+import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "./AuthContext";
+import "./Category.css";
 
 const CategoriesPage = () => {
+  const { user: authUser } = useAuth();
+  const uid = authUser?.uid;
+
   const [categories, setCategories] = useState([]);
   const [allCategories, setAllCategories] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [filterType, setFilterType] = useState('All');
+  const [filterType, setFilterType] = useState("All");
   const [stats, setStats] = useState({ total: 0, income: 0, expense: 0 });
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    iconUrl: '',
-    type: 'Expense'
+    name: "",
+    description: "",
+    iconUrl: "",
+    type: "Expense",
   });
 
-
-  const { user } = useAuth();
-  const uid = user?.uid;
-
-  //console.log("Current user:", user);
-  //console.log("UID:", uid);
+  // Bulk upload state
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkErrors, setBulkErrors] = useState([]);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkSuccess, setBulkSuccess] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    if (uid) fetchCategories();
+  }, [uid]);
 
   useEffect(() => {
     applyFilter();
@@ -36,143 +41,113 @@ const CategoriesPage = () => {
   const fetchCategories = async () => {
     try {
       const url = `http://localhost:8080/categories/${uid}`;
-
-      const response = await fetch(url, {
-    credentials: 'include'  // ← add this
-     });
+      const response = await fetch(url, { credentials: "include" });
       const data = await response.json();
-      
-      // Backend returns array directly, not wrapped in an object
+
+      // const data = await response.json();
+      console.log("Category fields:", data[0]); // ← what is the id field called?
+
       if (Array.isArray(data)) {
-        console.log('✅ Received array with', data.length, 'categories');
         setAllCategories(data);
         updateStats(data);
       } else if (data.success && data.categories) {
-        // Fallback: if backend changes to return {success, categories}
-        console.log('✅ Received object with categories array');
         setAllCategories(data.categories);
         updateStats(data.categories);
       } else {
-        console.error('❌ Unexpected response format:', data);
         setAllCategories([]);
       }
     } catch (error) {
-      console.error('❌ Error fetching categories:', error);
-      alert('Failed to fetch categories. Error: ' + error.message);
+      console.error("Error fetching categories:", error);
+      alert("Failed to fetch categories. Error: " + error.message);
       setAllCategories([]);
     }
   };
 
   const applyFilter = () => {
-    if (filterType === 'All') {
+    if (filterType === "All") {
       setCategories(allCategories);
     } else {
-      const filtered = allCategories.filter(c => c.type === filterType);
-      setCategories(filtered);
+      setCategories(allCategories.filter((c) => c.type === filterType));
     }
   };
 
   const updateStats = (categoriesData) => {
-    const total = categoriesData.length;
-    const income = categoriesData.filter(c => c.type === 'Income').length;
-    const expense = categoriesData.filter(c => c.type === 'Expense').length;
-
-    setStats({ total, income, expense });
+    setStats({
+      total: categoriesData.length,
+      income: categoriesData.filter((c) => c.type === "Income").length,
+      expense: categoriesData.filter((c) => c.type === "Expense").length,
+    });
   };
 
   const handleAddCategory = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:8080/categories/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          uid: uid,
-          name: formData.name,
-          description: formData.description,
-          iconUrl: formData.iconUrl,
-          type: formData.type
-        })
+      const response = await fetch("http://localhost:8080/categories/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ uid, ...formData }),
       });
-
       const data = await response.json();
-      console.log('Add category response:', data);
-
-      // Handle both response formats
       if (data.success || response.ok) {
-        alert('Category added successfully!');
+        alert("Category added successfully!");
         setShowAddModal(false);
         resetForm();
         await fetchCategories();
       } else {
-        alert(data.message || 'Failed to add category');
+        alert(data.message || "Failed to add category");
       }
     } catch (error) {
-      console.error('Error adding category:', error);
-      alert('Failed to add category');
+      alert("Failed to add category");
     }
   };
 
   const handleUpdateCategory = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:8080/categories/update', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+      const response = await fetch("http://localhost:8080/categories/update", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           Cid: selectedCategory.Cid,
-          uid: uid,
-          name: formData.name,
-          description: formData.description,
-          iconUrl: formData.iconUrl,
-          type: formData.type
-        })
+          Uid: uid,
+          ...formData,
+        }),
       });
-
       const data = await response.json();
-
       if (data.success || response.ok) {
-        alert('Category updated successfully!');
+        alert("Category updated successfully!");
         setShowEditModal(false);
         resetForm();
         await fetchCategories();
       } else {
-        alert(data.message || 'Failed to update category');
+        alert(data.message || "Failed to update category");
       }
     } catch (error) {
-      console.error('Error updating category:', error);
-      alert('Failed to update category');
+      alert("Failed to update category");
     }
   };
 
   const handleDeleteCategory = async (Cid) => {
-   // console.log(Cid);
-    if (!Cid) {
-    console.error("Category ID (Cid) is missing!");
-    return;
-   }
-    if (window.confirm('Are you sure you want to delete this category?')) {
+    if (window.confirm("Are you sure you want to delete this category?")) {
       try {
         const response = await fetch(
           `http://localhost:8080/categories/${Cid}/delete/${uid}`,
-          { method: 'PATCH',
-            credentials: 'include'
-           }
+          {
+            method: "PATCH",
+            credentials: "include",
+          },
         );
-
         const data = await response.json();
-
         if (data.success || response.ok) {
-          alert('Category deleted successfully!');
+          alert("Category deleted successfully!");
           await fetchCategories();
         } else {
-          alert(data.message || 'Failed to delete category');
+          alert(data.message || "Failed to delete category");
         }
       } catch (error) {
-        console.error('Error deleting category:', error);
-        alert('Failed to delete category');
+        alert("Failed to delete category");
       }
     }
   };
@@ -181,42 +156,117 @@ const CategoriesPage = () => {
     setSelectedCategory(category);
     setFormData({
       name: category.name,
-      description: category.description || '',
-      iconUrl: category.iconUrl || '',
-      type: category.type
+      description: category.description || "",
+      iconUrl: category.iconUrl || "",
+      type: category.type,
     });
     setShowEditModal(true);
   };
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      iconUrl: '',
-      type: 'Expense'
-    });
+    setFormData({ name: "", description: "", iconUrl: "", type: "Expense" });
     setSelectedCategory(null);
   };
 
   const getIconDisplay = (iconUrl) => {
-    if (!iconUrl) return '📁';
+    if (!iconUrl) return "📁";
     if (iconUrl.length <= 2) return iconUrl;
     return <img src={iconUrl} alt="icon" className="category-icon-img" />;
   };
 
-  const handleFilterChange = (type) => {
-    setFilterType(type);
+  // ─── Bulk Upload ──────────────────────────────────────────────────────────
+  const handleFileSelect = (file) => {
+    if (!file) return;
+    setBulkFile(file);
+    setBulkErrors([]);
+    setBulkSuccess(false);
   };
 
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    handleFileSelect(e.dataTransfer.files[0]);
+  };
+
+  // src/Category.jsx
+
+  const handleBulkUpload = async () => {
+    if (!bulkFile) return;
+    setBulkUploading(true);
+    setBulkErrors([]); // We will store the full result array here
+    setBulkSuccess(false);
+
+    const fd = new FormData();
+    fd.append("file", bulkFile);
+    fd.append("uid", uid);
+
+    try {
+      const response = await fetch(
+        "http://localhost:8080/api/transactions/bulk-upload",
+        {
+          method: "POST",
+          credentials: "include",
+          body: fd,
+        },
+      );
+
+      const data = await response.json(); // This is the List<ResponseBulkUploadModel>
+
+      if (response.ok) {
+        // Check if ANY row in the returned list has an error
+        const hasAnyErrors = data.some(
+          (row) => row.error && row.error.length > 0,
+        );
+
+        if (hasAnyErrors) {
+          setBulkErrors(data); // Store the whole array to show per-row errors
+          setBulkSuccess(false);
+        } else {
+          setBulkSuccess(true);
+          await fetchCategories();
+        }
+      } else {
+        setBulkErrors([{ error: [data.message || "Upload failed."] }]);
+      }
+    } catch (err) {
+      setBulkErrors([{ error: ["Could not reach the server."] }]);
+    } finally {
+      setBulkUploading(false);
+    }
+  };
+
+  const resetBulkModal = () => {
+    setBulkFile(null);
+    setBulkErrors([]);
+    setBulkSuccess(false);
+    setDragOver(false);
+  };
+
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="categories-page">
       <div className="container">
         {/* Header */}
         <div className="header">
-          <h1 className="header-title">💰 My Expense Tracker</h1>
+          <h1 className="header-title">💰 My Expenses</h1>
           <div className="header-buttons">
-            <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-               Add Transactions
+            <button
+              className="btn btn-success"
+              onClick={() => setShowExpenseModal(true)}
+            >
+              <span>+</span> Add Expense
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={() => setShowBulkModal(true)}
+            >
+              <span>⬆</span> Bulk Upload
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => setShowAddModal(true)}
+            >
+              <span>+</span> Add Category
             </button>
           </div>
         </div>
@@ -224,39 +274,30 @@ const CategoriesPage = () => {
         {/* Stats Bar */}
         <div className="stats-bar">
           <div className="stat-item">
-            <div className="stat-label">Total</div>
+            <div className="stat-label">Total Categories</div>
             <div className="stat-value">{stats.total}</div>
           </div>
           <div className="stat-item">
-            <div className="stat-label">Income</div>
+            <div className="stat-label">Income Categories</div>
             <div className="stat-value">{stats.income}</div>
           </div>
           <div className="stat-item">
-            <div className="stat-label">Expense</div>
+            <div className="stat-label">Expense Categories</div>
             <div className="stat-value">{stats.expense}</div>
           </div>
         </div>
 
         {/* Filter Tabs */}
         <div className="filter-tabs">
-          <button
-            className={`tab ${filterType === 'All' ? 'active' : ''}`}
-            onClick={() => handleFilterChange('All')}
-          >
-            All
-          </button>
-          <button
-            className={`tab ${filterType === 'Income' ? 'active' : ''}`}
-            onClick={() => handleFilterChange('Income')}
-          >
-            Income
-          </button>
-          <button
-            className={`tab ${filterType === 'Expense' ? 'active' : ''}`}
-            onClick={() => handleFilterChange('Expense')}
-          >
-            Expenses
-          </button>
+          {["All", "Income", "Expense"].map((type) => (
+            <button
+              key={type}
+              className={`tab ${filterType === type ? "active" : ""}`}
+              onClick={() => setFilterType(type)}
+            >
+              {type === "All" ? "All Categories" : type}
+            </button>
+          ))}
         </div>
 
         {/* Categories Grid */}
@@ -271,8 +312,10 @@ const CategoriesPage = () => {
                     </div>
                     <div className="category-details">
                       <h3>{category.name}</h3>
-                      <span className={`category-type type-${category.type?.toLowerCase() || 'expense'}`}>
-                        {category.type || 'Expense'}
+                      <span
+                        className={`category-type type-${category.type?.toLowerCase() || "expense"}`}
+                      >
+                        {category.type || "Expense"}
                       </span>
                     </div>
                   </div>
@@ -294,7 +337,7 @@ const CategoriesPage = () => {
                   </div>
                 </div>
                 <p className="category-description">
-                  {category.description || 'No description'}
+                  {category.description || "No description"}
                 </p>
                 <div className="category-footer">
                   <button
@@ -304,29 +347,161 @@ const CategoriesPage = () => {
                       setShowExpenseModal(true);
                     }}
                   >
-                    Add {category.type || 'Expense'} to this Category
+                    Add {category.type || "Expense"} to this Category
                   </button>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          // for empty state which is not working 
           <div className="empty-state">
-            <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-            + Add Your First Transaction
-           </button>
             <div className="empty-state-icon">📂</div>
             <h3>No categories yet</h3>
             <p>
-              {filterType === 'All'
-                ? 'Create your first category to get started!'
+              {filterType === "All"
+                ? "Create your first category to get started!"
                 : `No ${filterType} categories found. Create one!`}
             </p>
-            
           </div>
         )}
       </div>
+
+      {/* Bulk Upload Modal */}
+      {showBulkModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setShowBulkModal(false);
+            resetBulkModal();
+          }}
+        >
+          <div
+            className="modal modal-bulk"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header bulk-header">
+              <div>
+                <h2>⬆ Bulk Upload Categories</h2>
+                <p className="bulk-subtitle">
+                  Upload a CSV or text file — validation is handled by the
+                  server
+                </p>
+              </div>
+              <button
+                className="btn-close"
+                onClick={() => {
+                  setShowBulkModal(false);
+                  resetBulkModal();
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              {!bulkSuccess && (
+                <div
+                  className={`drop-zone ${dragOver ? "drag-over" : ""} ${bulkFile ? "has-file" : ""}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,.txt"
+                    style={{ display: "none" }}
+                    onChange={(e) => handleFileSelect(e.target.files[0])}
+                  />
+                  {bulkFile ? (
+                    <div className="drop-zone-file">
+                      <span className="dz-icon">📄</span>
+                      <span className="dz-filename">{bulkFile.name}</span>
+                      <span className="dz-change">Click to change file</span>
+                    </div>
+                  ) : (
+                    <div className="drop-zone-empty">
+                      <span className="dz-icon">📂</span>
+                      <span className="dz-text">
+                        Drag & drop your file here
+                      </span>
+                      <span className="dz-sub">
+                        or click to browse · .csv or .txt
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Inside the Bulk Upload Modal Body */}
+              {bulkErrors.length > 0 && (
+                <div className="bulk-errors-container">
+                  <strong>⚠ Issues found in your file:</strong>
+                  <div className="bulk-error-list">
+                    {bulkErrors.map(
+                      (row, index) =>
+                        // Only show rows that actually have errors
+                        row.error &&
+                        row.error.length > 0 && (
+                          <div key={index} className="bulk-error-item">
+                            <span className="error-row-num">
+                              Row {index + 2}:
+                            </span>
+                            <ul>
+                              {row.error.map((msg, i) => (
+                                <li key={i}>{msg}</li>
+                              ))}
+                            </ul>
+                            <div className="error-row-data">
+                              Data: {row.name || "N/A"} | {row.amount} |{" "}
+                              {row.category}
+                            </div>
+                          </div>
+                        ),
+                    )}
+                  </div>
+                  <p className="bulk-errors-hint">
+                    Please fix these rows and try again.
+                  </p>
+                </div>
+              )}
+              {bulkSuccess && (
+                <div className="bulk-result">
+                  <div className="bulk-result-icon">🎉</div>
+                  <strong>Categories uploaded successfully!</strong>
+                  <button className="btn btn-outline" onClick={resetBulkModal}>
+                    Upload Another File
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowBulkModal(false);
+                  resetBulkModal();
+                }}
+              >
+                Cancel
+              </button>
+              {!bulkSuccess && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleBulkUpload}
+                  disabled={!bulkFile || bulkUploading}
+                >
+                  {bulkUploading ? "Uploading..." : "Upload"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Category Modal */}
       {showAddModal && (
@@ -343,7 +518,9 @@ const CategoriesPage = () => {
                     type="text"
                     required
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                     placeholder="e.g., Salary, Food, Shopping"
                   />
                 </div>
@@ -351,7 +528,9 @@ const CategoriesPage = () => {
                   <label>Description</label>
                   <textarea
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
                     placeholder="Optional description"
                     rows="3"
                   />
@@ -361,7 +540,9 @@ const CategoriesPage = () => {
                   <input
                     type="text"
                     value={formData.iconUrl}
-                    onChange={(e) => setFormData({ ...formData, iconUrl: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, iconUrl: e.target.value })
+                    }
                     placeholder="e.g., 🍕 or https://example.com/icon.png"
                   />
                   <div className="form-hint">
@@ -372,7 +553,9 @@ const CategoriesPage = () => {
                   <label>Type *</label>
                   <select
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, type: e.target.value })
+                    }
                     required
                   >
                     <option value="Expense">Expense</option>
@@ -415,14 +598,18 @@ const CategoriesPage = () => {
                     type="text"
                     required
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, name: e.target.value })
+                    }
                   />
                 </div>
                 <div className="form-group">
                   <label>Description</label>
                   <textarea
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
                     rows="3"
                   />
                 </div>
@@ -431,14 +618,18 @@ const CategoriesPage = () => {
                   <input
                     type="text"
                     value={formData.iconUrl}
-                    onChange={(e) => setFormData({ ...formData, iconUrl: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, iconUrl: e.target.value })
+                    }
                   />
                 </div>
                 <div className="form-group">
                   <label>Type *</label>
                   <select
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, type: e.target.value })
+                    }
                     required
                   >
                     <option value="Expense">Expense</option>
@@ -466,18 +657,30 @@ const CategoriesPage = () => {
         </div>
       )}
 
-      {/* Expense Modal Placeholder */}
+      {/* Expense Modal */}
       {showExpenseModal && (
-        <div className="modal-overlay" onClick={() => setShowExpenseModal(false)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setShowExpenseModal(false)}
+        >
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add {selectedCategory ? selectedCategory.type : 'Expense/Income'}</h2>
+              <h2>
+                Add{" "}
+                {selectedCategory ? selectedCategory.type : "Expense/Income"}
+              </h2>
             </div>
             <div className="modal-body">
-              <p style={{ color: '#718096', textAlign: 'center', padding: '40px 0' }}>
+              <p
+                style={{
+                  color: "#718096",
+                  textAlign: "center",
+                  padding: "40px 0",
+                }}
+              >
                 {selectedCategory
-                  ? `Adding ${selectedCategory.type?.toLowerCase() || 'expense'} to: ${selectedCategory.name}`
-                  : 'Expense/Income form will go here'}
+                  ? `Adding ${selectedCategory.type?.toLowerCase() || "expense"} to: ${selectedCategory.name}`
+                  : "Expense/Income form will go here"}
               </p>
             </div>
             <div className="modal-footer">

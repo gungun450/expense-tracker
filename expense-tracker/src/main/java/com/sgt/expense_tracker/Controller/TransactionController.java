@@ -1,6 +1,8 @@
 package com.sgt.expense_tracker.Controller;
 
+import com.sgt.expense_tracker.Model.ResponseBulkUploadModel;
 import com.sgt.expense_tracker.Model.Transaction;
+import com.sgt.expense_tracker.Service.AIService;
 import com.sgt.expense_tracker.Service.TransactionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +23,9 @@ import java.util.Map;
 public class TransactionController {
     @Autowired
     TransactionService transactionService;
+
+    @Autowired
+    AIService aiService;
 
      Logger logger = LoggerFactory.getLogger(TransactionController.class);
 
@@ -55,13 +60,18 @@ public class TransactionController {
     }
 
     @PostMapping("/bulk-upload")
-    public void bulkUpload(@RequestParam(name = "file")MultipartFile file){
+    public List<ResponseBulkUploadModel> bulkUpload(@RequestParam(name = "file")MultipartFile file, Authentication auth){
         System.out.println(file.getOriginalFilename());
         try{
-            transactionService.read(file);
+             return transactionService.read(file,auth);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
+    }
+
+    @GetMapping("/prompt/{note}")
+    public String suggestCategory(@PathVariable(name = "note")String note){
+        return aiService.suggestCategory(note,List.of("food","Clothing"));
     }
 }

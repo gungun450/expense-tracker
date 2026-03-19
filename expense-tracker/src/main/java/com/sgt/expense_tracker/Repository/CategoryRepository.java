@@ -40,7 +40,6 @@ public class CategoryRepository {
     }
 
 
-
     public void softDelete(int uid, int cid) {
          String query = "update category set active_yn=0, updated_at=CURRENT_TIMESTAMP where Cid = ? and Uid = ? and active_yn = 1";
          jdbcTemplate.update(query,cid,uid);
@@ -49,5 +48,11 @@ public class CategoryRepository {
     public void update(int Uid, int Cid,String name, String description, String iconUrl, String type) {
          String query = "update category set name = ?,description = ?, iconUrl = ?, `type` = ? WHERE Cid = ? AND Uid = ?";
          jdbcTemplate.update(query,name,description,iconUrl,type,Cid,Uid);
+    }
+
+    public Category findByNameTypeAndUserId(String name, String type, int Uid){
+         String query = "select Cid,Uid,name,description,iconUrl, type, active_yn  from category where Uid = ? AND type = ?  and name = ? and active_yn = 1";
+        List<Category> result =  jdbcTemplate.query(query,new categoryMapper(),Uid,type,name);
+        return result.isEmpty()? null : result.get(0);
     }
 }
