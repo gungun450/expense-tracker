@@ -14,354 +14,255 @@ const formatCurrency = (amount) =>
 const formatDate = (dateStr) => {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-const TransactionsPage = () => {
-  const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+// helper — handles both camelCase and PascalCase from backend
+const getType     = (t) => t.categoryType || t.CategoryType || "";
+const getName     = (t) => t.categoryName  || t.CategoryName  || "—";
 
-  // ── Filter state ──
-  const [typeFilter, setTypeFilter] = useState("All"); // tab
-  const [searchInput, setSearchInput] = useState(""); // controlled input
-  const [appliedSearch, setAppliedSearch] = useState(""); // sent to backend
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+export default function TransactionsPage() {
+  const { user: authUser } = useAuth();
+  const uid = authUser?.uid;
 
-  // ── Sort state ──
+  const [transactions,  setTransactions]  = useState([]);
+  const [loading,       setLoading]       = useState(false);
+  const [error,         setError]         = useState(null);
+  const [totalRecords,  setTotalRecords]  = useState(0);
+  const [stats,         setStats]         = useState({ income: 0, expense: 0, net: 0 });
+
+  // ── Filters ──
+  const [typeFilter,    setTypeFilter]    = useState("All");
+  const [searchInput,   setSearchInput]   = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [startDate,     setStartDate]     = useState("");
+  const [endDate,       setEndDate]       = useState("");
+
+  // ── Sort ──
   const [sortCol, setSortCol] = useState("dateOfTransaction");
   const [sortDir, setSortDir] = useState("DESC");
 
   // ── Pagination ──
-  const [page, setPage] = useState(1);
-  const perPage = 5;
+  const [page,    setPage]    = useState(1);
+  const [perPage, setPerPage] = useState(10);
   const [hasMore, setHasMore] = useState(true);
 
-  // ── Stats (computed from current page data) ──
-  const [stats, setStats] = useState({
-    total: 0,
-    income: 0,
-    expense: 0,
-    net: 0,
-  });
-  const [totalRecords, setTotalRecords] = useState(0);
-  const { user: authUser } = useAuth();
-  const uid = authUser?.uid;
-
-  // ─────────────────────────────────────────────
-  // Build query params → all filtering/sorting/pagination done by backend
-  // ─────────────────────────────────────────────
+  // ── Build params (with pagination) ──
   const buildParams = useCallback(() => {
     const p = new URLSearchParams();
-
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (dateRegex.test(startDate)) p.set("start", startDate);
-    if (dateRegex.test(endDate)) p.set("end", endDate);
-
-    if (appliedSearch) p.set("category", appliedSearch);
-    if (typeFilter !== "All") p.set("type", typeFilter);
-    if (startDate) p.set("start", startDate);
-    if (endDate) p.set("end", endDate);
     p.set("uid", uid);
-    p.set("column", sortCol);
-    p.set("direction", sortDir);
-    p.set("pageNumber", page);
-    p.set("NoOfRecordsPerPage", perPage);
+    if (appliedSearch)        p.set("category",  appliedSearch);
+    if (typeFilter !== "All") p.set("type",       typeFilter);
+    if (startDate)            p.set("start",      startDate);
+    if (endDate)              p.set("end",        endDate);
+    p.set("column",              sortCol);
+    p.set("direction",           sortDir);
+    p.set("pageNumber",          page);
+    p.set("NoOfRecordsPerPage",  perPage);
     return p.toString();
-  }, [
-    uid,
-    appliedSearch,
-    typeFilter,
-    startDate,
-    endDate,
-    sortCol,
-    sortDir,
-    page,
-    perPage,
-  ]);
+  }, [uid, appliedSearch, typeFilter, startDate, endDate, sortCol, sortDir, page, perPage]);
 
-  // using pagination which is returning the values from backend
+  // ── Build params (no pagination — for total count) ──
+  const buildParamsNoPage = useCallback(() => {
+    const p = new URLSearchParams();
+    p.set("uid", uid);                              // FIX: uid was missing here
+    if (appliedSearch)        p.set("category",  appliedSearch);
+    if (typeFilter !== "All") p.set("type",       typeFilter);
+    if (startDate)            p.set("start",      startDate);
+    if (endDate)              p.set("end",        endDate);
+    p.set("column",    sortCol);
+    p.set("direction", sortDir);
+    return p.toString();
+  }, [uid, appliedSearch, typeFilter, startDate, endDate, sortCol, sortDir]);
+
+  // ── Fetch paginated transactions ──
   const fetchTransactions = useCallback(async () => {
+    if (!uid) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/transactions?${buildParams()}`, {
-        credentials: "include",
-      });
+      const res  = await fetch(`${API_BASE}/api/transactions?${buildParams()}`, { credentials: "include" });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
-
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
       setTransactions(list);
       setHasMore(list.length >= perPage);
 
-      // compute page-level stats
-      const income = list
-        .filter((t) => t.CategoryType === "Income")
-        .reduce((s, t) => s + t.amount, 0);
-      console.log("Income calculated from transactions:", income);
-      const expense = list
-        .filter((t) => t.CategoryType === "Expense")
-        .reduce((s, t) => s + t.amount, 0);
-      setStats({ total: list.length, income, expense, net: income - expense });
+      // FIX: use lowercase field names first, fallback to PascalCase
+      const income  = list.filter(t => getType(t) === "Income" ).reduce((s, t) => s + t.amount, 0);
+      const expense = list.filter(t => getType(t) === "Expense").reduce((s, t) => s + t.amount, 0);
+      setStats({ income, expense, net: income - expense });
     } catch (e) {
       setError(e.message);
       setTransactions([]);
     } finally {
       setLoading(false);
     }
-  }, [buildParams]);
+  }, [buildParams, uid, perPage]);
 
-  // Fetch total count (no pagination) whenever filters change
-  const buildParamsNoPage = useCallback(() => {
-    const p = new URLSearchParams();
-    if (appliedSearch) p.set("category", appliedSearch);
-    if (typeFilter !== "All") p.set("type", typeFilter);
-    if (startDate) p.set("start", startDate);
-    if (endDate) p.set("end", endDate);
-    p.set("column", sortCol);
-    p.set("direction", sortDir);
-    return p.toString();
-  }, [appliedSearch, typeFilter, startDate, endDate, sortCol, sortDir]);
-
-  // noPage version for total count of records
+  // ── Fetch total count ──
   useEffect(() => {
-    const fetchTotal = async () => {
+    if (!uid) return;
+    (async () => {
       try {
-        const res = await fetch(
-          `${API_BASE}/api/transactions?${buildParamsNoPage()}`,
-          {
-            credentials: "include",
-          },
-        );
+        const res  = await fetch(`${API_BASE}/api/transactions?${buildParamsNoPage()}`, { credentials: "include" });
         if (!res.ok) return;
         const data = await res.json();
         setTotalRecords(Array.isArray(data) ? data.length : 0);
       } catch (_) {}
-    };
-    fetchTotal();
-  }, [buildParamsNoPage]);
+    })();
+  }, [buildParamsNoPage, uid]);
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [fetchTransactions]);
+  useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
-  // Reset to page 1 whenever filters change
+  // ── Handlers ──
   const resetPage = () => setPage(1);
 
-  const handleSearch = () => {
-    setAppliedSearch(searchInput.trim());
-    resetPage();
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") handleSearch();
-  };
-
-  const handleTypeTab = (t) => {
-    setTypeFilter(t);
-    resetPage();
-  };
+  const handleSearch = () => { setAppliedSearch(searchInput.trim()); resetPage(); };
+  const handleKeyDown = (e) => { if (e.key === "Enter") handleSearch(); };
 
   const handleReset = () => {
-    setTypeFilter("All");
-    setSearchInput("");
-    setAppliedSearch("");
-    setStartDate("");
-    setEndDate("");
-    setSortCol("dateOfTransaction");
-    setSortDir("DESC");
+    setTypeFilter("All"); setSearchInput(""); setAppliedSearch("");
+    setStartDate(""); setEndDate("");
+    setSortCol("dateOfTransaction"); setSortDir("DESC");
     setPage(1);
   };
+
+  const totalPages = Math.ceil(totalRecords / perPage) || 1;
 
   return (
     <div className="transactions-page">
       <div className="container">
+
         {/* ── Header ── */}
         <div className="header">
-          <h1 className="header-title">💳 My Transactions</h1>
-          <div className="header-buttons">
-            <button className="btn btn-ghost" onClick={handleReset}>
-              ↺ Reset Filters
-            </button>
+          <div>
+            <h1 className="header-title">My Transactions</h1>
+            <p className="header-subtitle">Track and manage all your income & expenses</p>
           </div>
+          <button className="btn btn-ghost" onClick={handleReset}>↺ Reset Filters</button>
         </div>
 
         {/* ── Stats Bar ── */}
         <div className="stats-bar">
-          <div className="stat-item">
-            📋
-            <span className="stat-label">Total Records</span>
-            <span className="stat-value">{totalRecords}</span>
+          <div className="stat-item stat-total">
+            <div className="stat-icon">📋</div>
+            <div className="stat-label">Total Records</div>
+            <div className="stat-value">{totalRecords}</div>
           </div>
-          <div className="stat-item">
-            📈
-            <span className="stat-label">Income</span>
-            <span className="stat-value income">
-              {formatCurrency(stats.income)}
-            </span>
+          <div className="stat-item stat-income-card">
+            <div className="stat-icon">📈</div>
+            <div className="stat-label">Income (this page)</div>
+            <div className="stat-value income">{formatCurrency(stats.income)}</div>
           </div>
-          <div className="stat-item">
-            📉
-            <span className="stat-label">Expense</span>
-            <span className="stat-value expense">
-              {formatCurrency(stats.expense)}
-            </span>
+          <div className="stat-item stat-expense-card">
+            <div className="stat-icon">📉</div>
+            <div className="stat-label">Expense (this page)</div>
+            <div className="stat-value expense">{formatCurrency(stats.expense)}</div>
           </div>
-          <div className="stat-item">
-            💰
-            <span className="stat-label">Net</span>
-            <span
-              className={`stat-value ${stats.net >= 0 ? "net-pos" : "net-neg"}`}
-            >
+          <div className="stat-item stat-net-card">
+            <div className="stat-icon">💰</div>
+            <div className="stat-label">Net (this page)</div>
+            <div className={`stat-value ${stats.net >= 0 ? "net-pos" : "net-neg"}`}>
               {formatCurrency(stats.net)}
-            </span>
+            </div>
           </div>
         </div>
 
         {/* ── Filter Panel ── */}
         <div className="filter-panel">
-          <p className="filter-panel-title">🔍 Filter &amp; Sort</p>
-
+          <p className="filter-panel-title">Filter &amp; Sort</p>
           <div className="filter-grid">
-            {/* Search */}
+
             <div className="filter-group">
               <label className="filter-label">Search by Category</label>
               <div className="search-input-row">
                 <input
                   className="form-input"
-                  placeholder="e.g. Food, Salary, Shopping..."
+                  placeholder="e.g. Food, Salary…"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                 />
-                <button
-                  className="btn btn-primary"
-                  style={{ whiteSpace: "nowrap" }}
-                  onClick={handleSearch}
-                >
-                  Search
-                </button>
+                <button className="btn btn-primary" onClick={handleSearch}>Search</button>
               </div>
             </div>
 
-            {/* From date */}
             <div className="filter-group">
               <label className="filter-label">From Date</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="yyyy-mm-dd"
-                pattern="\d{4}-\d{2}-\d{2}"
-                maxLength={10}
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) resetPage();
-                }}
-              />
+              <input type="date" className="form-input" value={startDate}
+                onChange={(e) => { setStartDate(e.target.value); resetPage(); }} />
             </div>
 
-            {/* To date */}
             <div className="filter-group">
               <label className="filter-label">To Date</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="yyyy-mm-dd"
-                pattern="\d{4}-\d{2}-\d{2}"
-                maxLength={10}
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) resetPage();
-                }}
-              />
+              <input type="date" className="form-input" value={endDate}
+                onChange={(e) => { setEndDate(e.target.value); resetPage(); }} />
             </div>
 
-            {/* Sort column */}
             <div className="filter-group">
               <label className="filter-label">Sort By</label>
-              <select
-                className="form-select"
-                value={sortCol}
-                onChange={(e) => {
-                  setSortCol(e.target.value);
-                  resetPage();
-                }}
-              >
-                <option value="name">Name </option>
-                <option value="amount">Amount</option>
+              <select className="form-select" value={sortCol}
+                onChange={(e) => { setSortCol(e.target.value); resetPage(); }}>
                 <option value="dateOfTransaction">Date</option>
+                <option value="amount">Amount</option>
+                <option value="name">Category Name</option>
               </select>
             </div>
 
-            {/* Sort direction */}
             <div className="filter-group">
               <label className="filter-label">Order</label>
-              <select
-                className="form-select"
-                value={sortDir}
-                onChange={(e) => {
-                  setSortDir(e.target.value);
-                  resetPage();
-                }}
-              >
-                <option value="DESC"> Descending </option>
-                <option value="ASC">Ascending</option>
+              <select className="form-select" value={sortDir}
+                onChange={(e) => { setSortDir(e.target.value); resetPage(); }}>
+                <option value="DESC">Newest First</option>
+                <option value="ASC">Oldest First</option>
               </select>
             </div>
+
           </div>
         </div>
 
-        {/* ── Type Filter Tabs ── */}
+        {/* ── Type Tabs ── */}
         <div className="filter-tabs">
           {["All", "Income", "Expense"].map((t) => (
-            <button
-              key={t}
+            <button key={t}
               className={`tab ${typeFilter === t ? "active" : ""}`}
-              onClick={() => handleTypeTab(t)}
-            >
-              {t === "All"
-                ? "📋 All"
-                : t === "Income"
-                  ? "📈 Income"
-                  : "📉 Expense"}
+              onClick={() => { setTypeFilter(t); resetPage(); }}>
+              {t === "All" ? "All" : t === "Income" ? "📈 Income" : "📉 Expense"}
             </button>
           ))}
         </div>
 
-        {/* ── Error banner ── */}
-        {error && (
-          <div className="error-banner">
-            ⚠️ {error} — Make sure you are logged in.
-          </div>
-        )}
+        {error && <div className="error-banner">⚠️ {error} — Make sure you are logged in.</div>}
 
-        {/* ── Table Card ── */}
+        {/* ── Table ── */}
         <div className="table-card">
           <div className="table-card-header">
-            {" "}
-            Transaction Records
-            <span className="table-meta">
-              Page {page} &nbsp;·&nbsp; {perPage} per page
-            </span>
+            <span className="table-card-title">Transaction Records</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span className="table-meta">Page {page} of {totalPages}</span>
+              <select className="per-page-select" value={perPage}
+                onChange={(e) => { setPerPage(Number(e.target.value)); resetPage(); }}>
+                {[5, 10, 20, 50].map(n => <option key={n} value={n}>{n} / page</option>)}
+              </select>
+            </div>
           </div>
 
           <div className="table-wrapper">
+            {loading && (
+              <div className="loading-overlay">
+                <div className="spinner" />
+                <span className="loading-text">Loading…</span>
+              </div>
+            )}
             <table>
               <thead>
                 <tr>
                   <th>#</th>
                   <th>Category</th>
                   <th>Type</th>
-                  <th>Amount </th>
-                  <th>Date </th>
+                  <th>Amount</th>
+                  <th>Date</th>
                   <th>Notes</th>
                 </tr>
               </thead>
@@ -372,49 +273,35 @@ const TransactionsPage = () => {
                       <div className="empty-state">
                         <div className="empty-icon">🗂️</div>
                         <h3>No transactions found</h3>
+                        <p>Try adjusting your filters or add a new transaction.</p>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  transactions.map((t, i) => (
-                    <tr key={t.Tid || t.tid || i}>
-                      <td className="td-num">{(page - 1) * perPage + i + 1}</td>
-                      <td>
-                        <span className="category-pill">
-                          {t.categoryName || t.CategoryName || "—"}
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          className={`type-badge ${
-                            (t.categoryType || t.CategoryType) === "Income"
-                              ? "type-income"
-                              : "type-expense"
-                          }`}
-                        >
-                          {(t.categoryType || t.CategoryType) === "Income"
-                            ? "↑"
-                            : "↓"}
-                          &nbsp;{t.categoryType || t.CategoryType || "—"}
-                        </span>
-                      </td>
-                      <td
-                        className={
-                          (t.categoryType || t.CategoryType) === "Income"
-                            ? "amount-income"
-                            : "amount-expense"
-                        }
-                      >
-                        {formatCurrency(t.amount)}
-                      </td>
-                      <td className="td-date">
-                        {formatDate(t.dateOfTransaction)}
-                      </td>
-                      <td className={`td-notes ${!t.notes ? "empty" : ""}`}>
-                        {t.notes || "No notes"}
-                      </td>
-                    </tr>
-                  ))
+                  transactions.map((t, i) => {
+                    const type = getType(t);
+                    const isIncome = type === "Income";
+                    return (
+                      <tr key={t.Tid || t.tid || i}>
+                        <td className="td-num">{(page - 1) * perPage + i + 1}</td>
+                        <td>
+                          <span className="category-pill">{getName(t)}</span>
+                        </td>
+                        <td>
+                          <span className={`type-badge ${isIncome ? "type-income" : "type-expense"}`}>
+                            {isIncome ? "↑" : "↓"}&nbsp;{type || "—"}
+                          </span>
+                        </td>
+                        <td className={isIncome ? "amount-income" : "amount-expense"}>
+                          {formatCurrency(t.amount)}
+                        </td>
+                        <td className="td-date">{formatDate(t.dateOfTransaction)}</td>
+                        <td className={`td-notes ${!t.notes ? "empty" : ""}`}>
+                          {t.notes || "No notes"}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -423,32 +310,19 @@ const TransactionsPage = () => {
           {/* ── Pagination ── */}
           <div className="pagination-row">
             <span className="pagination-info">
-              Showing records {(page - 1) * perPage + 1}–
-              {(page - 1) * perPage + transactions.length}
+              Showing {transactions.length === 0 ? 0 : (page - 1) * perPage + 1}–{(page - 1) * perPage + transactions.length} of {totalRecords} records
             </span>
-
             <div className="pagination-controls">
-              <button
-                className="page-btn"
-                disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                ‹ Prev
-              </button>
+              <button className="page-btn" disabled={page === 1} onClick={() => setPage(1)}>«</button>
+              <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹ Prev</button>
               <span className="page-btn active">{page}</span>
-              <button
-                className="page-btn"
-                disabled={!hasMore}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next ›
-              </button>
+              <button className="page-btn" disabled={!hasMore} onClick={() => setPage(p => p + 1)}>Next ›</button>
+              <button className="page-btn" disabled={!hasMore} onClick={() => setPage(totalPages)}>»</button>
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );
-};
-
-export default TransactionsPage;
+}

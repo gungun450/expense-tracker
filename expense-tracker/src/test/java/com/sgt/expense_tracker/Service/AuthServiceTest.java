@@ -10,7 +10,7 @@ class AuthServiceTest {
     @Test
     public void testPassword(){
         BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
-        String encodedPassword = bCryptPasswordEncoder.encode("password");
+        String encodedPassword = bCryptPasswordEncoder.encode("123456789");
         System.out.println(encodedPassword);
     }
 }

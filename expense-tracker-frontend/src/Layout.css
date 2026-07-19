@@ -1,0 +1,115 @@
+/* Layout.css — full-screen persistent sidebar shell */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ── Shell ───────────────────────────────────────────────────────── */
+.layout-shell {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  background: #f0f2f8;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────── */
+.layout-sidebar {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-right: 2px solid #e8eaf5;
+  flex-shrink: 0;
+  transition: width 0.22s ease;
+  overflow: hidden;
+  z-index: 100;
+}
+.layout-shell:not(.layout-collapsed) .layout-sidebar { width: 220px; }
+.layout-shell.layout-collapsed       .layout-sidebar { width: 62px; }
+
+/* Logo */
+.layout-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 16px 18px;
+  border-bottom: 1px solid #e8eaf5;
+  flex-shrink: 0;
+}
+.layout-logo-icon { font-size: 22px; flex-shrink: 0; }
+.layout-logo-text {
+  font-size: 17px;
+  font-weight: 700;
+  color: #2d3748;
+  white-space: nowrap;
+  letter-spacing: -0.3px;
+}
+
+/* Nav */
+.layout-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 8px;
+  overflow: hidden;
+}
+.layout-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #718096;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+  text-align: left;
+  width: 100%;
+}
+.layout-nav-item:hover {
+  background: #f0f2f8;
+  color: #2d3748;
+}
+.layout-nav-item.layout-nav-active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #ffffff;
+}
+.layout-nav-icon  { font-size: 15px; flex-shrink: 0; width: 20px; text-align: center; }
+.layout-nav-label { flex: 1; }
+
+/* Collapse toggle */
+.layout-collapse-btn {
+  margin: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: transparent;
+  color: #a0aec0;
+  cursor: pointer;
+  font-size: 11px;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.layout-collapse-btn:hover {
+  background: #f0f2f8;
+  color: #667eea;
+}
+
+/* ── Page area ───────────────────────────────────────────────────── */
+.layout-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}

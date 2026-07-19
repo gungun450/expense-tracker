@@ -23,7 +23,7 @@ public class TransactionRepository {
     public List<Transaction> getAll(int id, String category, String type, LocalDate start, LocalDate end, String Column,
                                     String direction, Integer pageNumber, Integer noOfRecordsPerPage){
 
-        if("dataOfTransaction".equals(Column)){
+        if("dateOfTransaction".equals(Column)){
             Column = "t.dateOfTransaction";
 
         }
@@ -73,6 +73,3 @@ public class TransactionRepository {
         return jdbcTemplate.query(sql.toString(), new TransactionMapper(), params.toArray());  // --> VAR ARGS
     }
 }
-
-
-    //public

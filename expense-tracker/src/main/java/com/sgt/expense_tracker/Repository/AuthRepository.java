@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Repository
 public class AuthRepository {
@@ -18,7 +19,7 @@ public class AuthRepository {
 
     public User FindByEmail(String email){
       String query = "select Uid,name,username,phoneNumber,email,passwords,active_yn from users where email = ? ";
-     try {
+      try {
          User user = jdbcTemplate.queryForObject(query,(resultset,rownum)->{
             User u = new User();
             u.setId(resultset.getInt("Uid"));
@@ -31,7 +32,7 @@ public class AuthRepository {
             return u;
          },email);
         return user;
-    } catch (EmptyResultDataAccessException e) {
+     } catch (EmptyResultDataAccessException e) {
         return null;  // Return null when user not found
     }
 }
@@ -95,9 +96,22 @@ public class AuthRepository {
    }
 
    public void extendExpiryTime(String token,LocalDateTime currentTime, LocalDateTime expiry){
-
         String query = "update authToken set expirey_time = ?, currentTimestamp = ? where token = ?";
         jdbcTemplate.update(query,expiry,currentTime,token);
-
    }
+
+   public List<User> getAllUsers() {
+    String query = "SELECT Uid, name, username, phoneNumber, email, passwords, active_yn FROM users";
+    return jdbcTemplate.query(query, (resultset, rownum) -> {
+        User u = new User();
+        u.setId(resultset.getInt("Uid"));
+        u.setEmail(resultset.getString("email"));
+        u.setName(resultset.getString("name"));
+        u.setUsername(resultset.getString("username"));
+        u.setPhoneNumber(resultset.getString("phoneNumber"));
+        u.setPasswords(resultset.getString("passwords"));
+        u.setActive_yn(resultset.getInt("active_yn"));
+        return u;
+    });
+}
 }

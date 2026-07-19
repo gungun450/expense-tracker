@@ -40,6 +40,8 @@ dependencies {
     testImplementation 'org.springframework.security:spring-security-crypto'
     // Source: https://mvnrepository.com/artifact/org.springframework.boot/spring-boot-starter-mail
     implementation 'org.springframework.boot:spring-boot-starter-mail'
+    // Source: https://mvnrepository.com/artifact/com.github.librepdf/openpdf
+    implementation 'com.github.librepdf:openpdf:3.0.3'
 
 }
 
